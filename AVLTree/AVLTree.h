@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <vector>
+#include <stack>
 #include <cstdlib>
 
 template <typename Type>
@@ -45,13 +47,12 @@ private:
     Position FindMin(Tree) const;
     Position FindMax(Tree) const;
 
-    // 未完成, 待重写
-    void Show(Tree) const;
-    // 未完成, 待重写
-    void ShowAll(Tree) const;
-
 public:
     AVLTree() : Root(nullptr), NodeCount(0ULL), ElementCount(0ULL) {}
+    AVLTree(const AVLTree &) = delete;
+    AVLTree(AVLTree &&) = delete;
+    AVLTree &operator=(const AVLTree &) = delete;
+    AVLTree &operator=(AVLTree &&) = delete;
     ~AVLTree() { MakeEmpty(Root); }
 
     bool insert(const Type &);
@@ -61,13 +62,16 @@ public:
     unsigned int findMin(Type &) const;
     unsigned int findMax(Type &) const;
 
-    // 未完成, 待重写
-    void show() const;
-    // 未完成, 待重写
-    void showAll() const;
     bool isEmpty() const;
     unsigned long long nodeCount() const;
     unsigned long long elementCount() const;
+
+    std::vector<Type> preOrder() const;
+    std::vector<Type> inOrder() const;
+    std::vector<Type> posOrder() const;
+    std::vector<Type> preOrderAll() const;
+    std::vector<Type> inOrderAll() const;
+    std::vector<Type> posOrderAll() const;
 };
 
 template <typename Type>
@@ -589,27 +593,6 @@ typename AVLTree<Type>::Position AVLTree<Type>::FindMin(Tree T) const
     return T; // 返回最小元素节点
 }
 
-template <typename Type>
-void AVLTree<Type>::Show(Tree T) const
-{
-    if (T == nullptr)
-        return;
-    Show(T->Left);
-    std::cout << T->Item << ' ';
-    Show(T->Right);
-}
-
-template <typename Type>
-void AVLTree<Type>::ShowAll(Tree T) const
-{
-    if (T == nullptr)
-        return;
-    ShowAll(T->Left);
-    for (int i = T->Times; i; --i)
-        std::cout << T->Item << ' ';
-    ShowAll(T->Right);
-}
-
 /**
  * @brief 向AVL树中插入元素的公共接口
  *
@@ -738,18 +721,6 @@ unsigned int AVLTree<Type>::removeAll(const Type &x)
     return tempe - ElementCount;
 }
 
-template <typename Type>
-void AVLTree<Type>::show() const
-{
-    Show(Root);
-}
-
-template <typename Type>
-void AVLTree<Type>::showAll() const
-{
-    ShowAll(Root);
-}
-
 /**
  * @brief 判断树是否为空
  */
@@ -775,6 +746,206 @@ template <typename Type>
 unsigned long long AVLTree<Type>::elementCount() const
 {
     return ElementCount;
+}
+
+/**
+ * @brief 先序遍历树，将（不重复）元素返回给一个 vector
+ *
+ * 使用栈来避免递归
+ * 先处理当前栈顶的节点的元素
+ * 然后使右子树先压入到栈中以保证左子树先于右子树被遍历
+ *
+ * @return 返回储存先序遍历树（不重复）元素的 vector 容器
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::preOrder() const
+{
+    std::vector<Type> result;
+    if (Root != nullptr)
+    {
+        // 这是为了防止原树被改变
+        Tree root = Root;
+        std::stack<Tree> stk;
+        stk.push(root);
+        while (!stk.empty())
+        {
+            root = stk.top();
+            stk.pop();
+            result.push_back(root->Item);
+            if (root->Right != nullptr)
+                stk.push(root->Right);
+            if (root->Left != nullptr)
+                stk.push(root->Left);
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 中序遍历树, 将（不重复）元素返回给一个 vector
+ *
+ * 使用栈来避免递归
+ * 对于任何一个子树的根节点，先使左子树入栈
+ * 当左子树为空时, 才弹出栈顶节点, 并保存节点元素
+ * 然后再来到右子树重复上述操作
+ *
+ * @return 返回储存中序遍历树（不重复）元素的 vector 容器
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::inOrder() const
+{
+    std::vector<Type> result;
+    // 这是为了防止原树被改变
+    Tree root = Root;
+    std::stack<Tree> stk;
+    while (root != nullptr || !stk.empty())
+    {
+        // root 可以是根节点, 左子树, 右子树
+        // 循环后, 所有 root 最左边的左子树都已入栈
+        while (root != nullptr)
+        {
+            stk.push(root);
+            root = root->Left;
+        }
+        // 有前面两个判断保证 stk 此时必不为空
+        root = stk.top();
+        stk.pop();
+        result.push_back(root->Item);
+        // 遍历完左子树和自身, 再中序遍历自身
+        root = root->Right;
+    }
+    return result;
+}
+
+/**
+ * @brief 后序遍历树, 将（不重复）元素返回给一个 vector
+ *
+ * 使用栈来避免递归
+ *
+ * @return 返回储存后序遍历树（不重复）元素的 vector 容器
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::posOrder() const
+{
+    std::vector<Type> result;
+    if (Root != nullptr)
+    {
+        Tree head = nullptr, cur;
+        std::stack<Tree> stk;
+        stk.push(Root);
+        while (!stk.empty())
+        {
+            cur = stk.top();
+            if (cur->Left != nullptr && cur->Left != head && cur->Right != head)
+                stk.push(cur->Left);
+            else if (cur->Right != nullptr && cur->Right != head)
+                stk.push(cur->Right);
+            else
+            {
+                result.push_back(cur->Item);
+                // 其实就是 cur
+                head = stk.top();
+                stk.pop();
+            }
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 先序遍历树的所有（含重复）元素
+ *
+ * @return 返回带有遍历结果的 vector
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::preOrderAll() const
+{
+    std::vector<Type> result;
+    if (Root != nullptr)
+    {
+        // 这是为了防止原树被改变
+        Tree root = Root;
+        std::stack<Tree> stk;
+        unsigned int times;
+        stk.push(root);
+        while (!stk.empty())
+        {
+            root = stk.top();
+            times = root->Times;
+            stk.pop();
+            while (times--)
+                result.push_back(root->Item);
+            if (root->Right != nullptr)
+                stk.push(root->Right);
+            if (root->Left != nullptr)
+                stk.push(root->Left);
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 中序遍历树的所有（含重复）元素
+ *
+ * @return 返回带有遍历结果的 vector
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::inOrderAll() const
+{
+    std::vector<Type> result;
+    std::stack<Tree> stk;
+    Tree root = Root;
+    unsigned int times;
+    while (root != nullptr || !stk.empty())
+    {
+        while (root != nullptr)
+        {
+            stk.push(root);
+            root = root->Left;
+        }
+        root = stk.top();
+        stk.pop();
+        times = root->Times;
+        while (times--)
+            result.push_back(root->Item);
+        root = root->Right;
+    }
+    return result;
+}
+
+/**
+ * @brief 后序遍历树的所有（含重复）元素
+ *
+ * @return 返回带有遍历结果的 vector
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::posOrderAll() const
+{
+    std::vector<Type> result;
+    if (Root != nullptr)
+    {
+        Tree head = nullptr, cur;
+        unsigned int times;
+        std::stack<Tree> stk;
+        stk.push(Root);
+        while (!stk.empty())
+        {
+            cur = stk.top();
+            if (cur->Left != nullptr && cur->Left != head && cur->Right != head)
+                stk.push(cur->Left);
+            else if (cur->Right != nullptr && cur->Right != head)
+                stk.push(cur->Right);
+            else
+            {
+                times = cur->Times;
+                while (times--)
+                    result.push_back(cur->Item);
+                head = stk.top();
+                stk.pop();
+            }
+        }
+    }
+    return result;
 }
 
 #endif

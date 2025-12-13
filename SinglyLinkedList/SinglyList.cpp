@@ -1,5 +1,5 @@
 // List.cpp to realize the List structure in cpp.
-#include "list.h"
+#include "SinglyList.h"
 #include <cstdlib>
 
 static List findTail(const List &H)
