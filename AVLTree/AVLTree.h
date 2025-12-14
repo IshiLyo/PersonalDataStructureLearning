@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <queue>
 #include <cstdlib>
 
 template <typename Type>
@@ -18,7 +19,10 @@ private:
         int Height;         // AVL平衡所需
         TreeNode *Left, *Right;
 
+        TreeNode() = delete;
         TreeNode(const Type &x) : Item(x), Times(1), Height(0), Left(nullptr), Right(nullptr) {}
+        TreeNode(const TreeNode *TN) = delete;
+        TreeNode(const TreeNode &TN) : Item(TN.Item), Times(TN.Times), Height(TN.Height), Left(nullptr), Right(nullptr) {}
     };
 
     using Position = TreeNode *;
@@ -49,10 +53,10 @@ private:
 
 public:
     AVLTree() : Root(nullptr), NodeCount(0ULL), ElementCount(0ULL) {}
-    AVLTree(const AVLTree &) = delete;
-    AVLTree(AVLTree &&) = delete;
-    AVLTree &operator=(const AVLTree &) = delete;
-    AVLTree &operator=(AVLTree &&) = delete;
+    AVLTree(const AVLTree &);
+    AVLTree(AVLTree &&);
+    AVLTree &operator=(const AVLTree &);
+    AVLTree &operator=(AVLTree &&);
     ~AVLTree() { MakeEmpty(Root); }
 
     bool insert(const Type &);
@@ -72,6 +76,8 @@ public:
     std::vector<Type> preOrderAll() const;
     std::vector<Type> inOrderAll() const;
     std::vector<Type> posOrderAll() const;
+    std::vector<Type> bfs() const;
+    std::vector<Type> bfsAll() const;
 };
 
 template <typename Type>
@@ -395,13 +401,12 @@ typename AVLTree<Type>::Tree AVLTree<Type>::Remove(Tree T, const Type &x)
         // 有两个子节点的情况：用右子树最小值替换当前节点
         if (T->Left != nullptr && T->Right != nullptr)
         {
-            Tree temp = FindMin(T->Right);                               // 找到右子树最小节点
-            unsigned tempt = temp->Times;                                // 保存临时计数
-            T->Item = temp->Item;                                        // 替换元素值
-            T->Times = temp->Times;                                      // 替换计数
-            T->Height = std::max(Height(T->Left), Height(T->Right)) + 1; // 更新高度
-            temp->Times = tempt;                                         // 恢复临时计数
-            T->Right = Remove(T->Right, T->Item);                        // 删除右子树中的重复节点
+            Tree temp = FindMin(T->Right);        // 找到右子树最小节点
+            unsigned tempt = T->Times;            // 保存临时计数
+            T->Item = temp->Item;                 // 替换元素值
+            T->Times = temp->Times;               // 替换计数
+            temp->Times = tempt;                  // 恢复临时计数
+            T->Right = Remove(T->Right, T->Item); // 删除右子树中的重复节点
         }
         // 有0或1个子节点的情况：直接删除
         else
@@ -409,7 +414,7 @@ typename AVLTree<Type>::Tree AVLTree<Type>::Remove(Tree T, const Type &x)
             Tree temp = T;
             if (T->Left == nullptr)
                 T = T->Right; // 只有右子树或无子树
-            else if (T->Right == nullptr)
+            else
                 T = T->Left; // 只有左子树
             delete temp;     // 释放节点内存
 
@@ -470,13 +475,12 @@ typename AVLTree<Type>::Tree AVLTree<Type>::RemoveAll(Tree T, const Type &x)
     else if (T->Left != nullptr && T->Right != nullptr)
     {
         // 有两个子节点的情况：用右子树最小值替换当前节点
-        Tree temp = FindMin(T->Right);                               // 找到右子树最小节点
-        unsigned tempt = temp->Times;                                // 保存临时计数
-        T->Item = temp->Item;                                        // 替换元素值
-        T->Times = temp->Times;                                      // 替换计数
-        T->Height = std::max(Height(T->Left), Height(T->Right)) + 1; // 更新高度
-        temp->Times = tempt;                                         // 恢复临时计数
-        T->Right = RemoveAll(T->Right, T->Item);                     // 删除右子树中的重复节点
+        Tree temp = FindMin(T->Right);           // 找到右子树最小节点
+        unsigned tempt = T->Times;               // 保存临时计数
+        T->Item = temp->Item;                    // 替换元素值
+        T->Times = temp->Times;                  // 替换计数
+        temp->Times = tempt;                     // 恢复临时计数
+        T->Right = RemoveAll(T->Right, T->Item); // 删除右子树中的重复节点
     }
     // 有0或1个子节点的情况：直接删除
     else
@@ -484,7 +488,7 @@ typename AVLTree<Type>::Tree AVLTree<Type>::RemoveAll(Tree T, const Type &x)
         Tree temp = T;
         if (T->Left == nullptr)
             T = T->Right; // 只有右子树或无子树
-        else if (T->Right == nullptr)
+        else
             T = T->Left;             // 只有左子树
         ElementCount -= temp->Times; // 减去该节点的所有重复计数
         delete temp;                 // 释放节点内存
@@ -561,6 +565,107 @@ typename AVLTree<Type>::Position AVLTree<Type>::FindMax(Tree T) const
         T = T->Right;
 
     return T; // 返回最大元素节点
+}
+
+template <typename Type>
+AVLTree<Type>::AVLTree(const AVLTree<Type> &avl) : Root(nullptr), NodeCount(avl.NodeCount), ElementCount(avl.ElementCount)
+{
+    if (avl.Root != nullptr)
+    {
+        Root = new TreeNode(*(avl.Root));
+        Tree srcRoot = avl.Root;
+        Tree copyRoot = Root;
+        std::queue<Tree> srcQueue;
+        std::queue<Tree> copyQueue;
+        srcQueue.push(srcRoot);
+        copyQueue.push(copyRoot);
+        while (!srcQueue.empty())
+        {
+            srcRoot = srcQueue.front();
+            srcQueue.pop();
+            copyRoot = copyQueue.front();
+            copyQueue.pop();
+            if (srcRoot->Left != nullptr)
+            {
+                srcQueue.push(srcRoot->Left);
+                copyRoot->Left = new TreeNode(*(srcRoot->Left));
+                copyQueue.push(copyRoot->Left);
+            }
+            if (srcRoot->Right != nullptr)
+            {
+                srcQueue.push(srcRoot->Right);
+                copyRoot->Right = new TreeNode(*(srcRoot->Right));
+                copyQueue.push(copyRoot->Right);
+            }
+        }
+    }
+}
+
+template <typename Type>
+AVLTree<Type>::AVLTree(AVLTree<Type> &&avl) : Root(avl.Root), NodeCount(avl.NodeCount), ElementCount(avl.ElementCount)
+{
+    avl.Root = nullptr;
+    avl.NodeCount = 0;
+    avl.ElementCount = 0;
+}
+
+template <typename Type>
+AVLTree<Type> &AVLTree<Type>::operator=(const AVLTree<Type> &avl)
+{
+    if (this == &avl)
+        return *this;
+    Root = MakeEmpty(Root);
+    NodeCount = avl.NodeCount;
+    ElementCount = avl.ElementCount;
+
+    if (avl.Root != nullptr)
+    {
+        Root = new TreeNode(*(avl.Root));
+        Tree srcRoot = avl.Root;
+        Tree copyRoot = Root;
+        std::queue<Tree> srcQueue;
+        std::queue<Tree> copyQueue;
+        srcQueue.push(srcRoot);
+        copyQueue.push(copyRoot);
+        while (!srcQueue.empty())
+        {
+            srcRoot = srcQueue.front();
+            srcQueue.pop();
+            copyRoot = copyQueue.front();
+            copyQueue.pop();
+            if (srcRoot->Left != nullptr)
+            {
+                srcQueue.push(srcRoot->Left);
+                copyRoot->Left = new TreeNode(*(srcRoot->Left));
+                copyQueue.push(copyRoot->Left);
+            }
+            if (srcRoot->Right != nullptr)
+            {
+                srcQueue.push(srcRoot->Right);
+                copyRoot->Right = new TreeNode(*(srcRoot->Right));
+                copyQueue.push(copyRoot->Right);
+            }
+        }
+    }
+    return *this;
+}
+
+template <typename Type>
+AVLTree<Type> &AVLTree<Type>::operator=(AVLTree<Type> &&avl)
+{
+    if (this == &avl)
+        return *this;
+    Root = MakeEmpty(Root);
+
+    NodeCount = avl.NodeCount;
+    ElementCount = avl.ElementCount;
+    Root = avl.Root;
+
+    avl.Root = nullptr;
+    avl.NodeCount = 0;
+    avl.ElementCount = 0;
+
+    return *this;
 }
 
 /**
@@ -943,6 +1048,65 @@ std::vector<Type> AVLTree<Type>::posOrderAll() const
                 head = stk.top();
                 stk.pop();
             }
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 广度优先遍历树的所有（不重复）元素
+ *
+ * @return 返回带有遍历结果的 vector
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::bfs() const
+{
+    std::vector<Type> result;
+    if (Root != nullptr)
+    {
+        std::queue<Tree> q;
+        Tree root = Root;
+        q.push(root);
+        while (!q.empty())
+        {
+            root = q.front();
+            q.pop();
+            result.push_back(root->Item);
+            if (root->Left != nullptr)
+                q.push(root->Left);
+            if (root->Right != nullptr)
+                q.push(root->Right);
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief 广度优先遍历树的所有（含重复）元素
+ *
+ * @return 返回带有遍历结果的 vector
+ */
+template <typename Type>
+std::vector<Type> AVLTree<Type>::bfsAll() const
+{
+    std::vector<Type> result;
+    if (Root != nullptr)
+    {
+        Tree root = Root;
+        unsigned int times;
+        std::queue<Tree> q;
+        q.push(root);
+        while (!q.empty())
+        {
+            root = q.top();
+            q.pop();
+            times = root->Times;
+            while (times--)
+                result.push_back(root->Item);
+            if (root->Left != nullptr)
+                q.push(root->Left);
+            if (root->Right != nullptr)
+                q.push(root->Right);
         }
     }
     return result;
